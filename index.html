@@ -69,10 +69,15 @@
 <script>
 const cursor_offset = 8;
 
-const canDragElement = mousedown_event => mousedown_event.target.className.includes('drag-element');
+const canDragElement = mousedown_event => {
+	if (mousedown_event.target.className){      // in case drag onto tools
+		return mousedown_event.target.className.includes('drag-element');
+	}
+	return false;
+}
 
 const canReceiveDrag = (mouseup_event, the_element) =>{
- 	if (the_element.className.includes('drag-receive') ){
+	if (the_element.className.includes('drag-receive')){
     	return true;
     }else if (the_element.id==''){
 		return false;   
@@ -101,16 +106,20 @@ const getChosenIds = function (dragged_list){
 }
 
 const mouseDown$ = Rx.Observable.fromEvent(document, 'mousedown')
-                     .filter(canDragElement)
-                     .map( down_event=> {return {target:down_event.target,
-                      	                         x_offset:down_event.offsetX + cursor_offset,
-                      	                         y_offset:down_event.offsetY + cursor_offset}; } );
+                   .filter(canDragElement)
+                   .map( down_event=> {return {target:down_event.target,
+                    	                       x_offset:down_event.offsetX + cursor_offset,
+                      	                       y_offset:down_event.offsetY + cursor_offset}; } );
 
 const mouseMove$ = Rx.Observable.fromEvent(document, 'mousemove');
-const mouseUp$ = Rx.Observable.fromEvent(document, 'mouseup');
+
+const mouseUp$ = Rx.Observable.fromEvent(document, 'mouseup')
+ 				 .filter(canDragElement);     // must be holding a draggable item
+
 const mouseDrag$ = mouseDown$.switchMap(() => mouseMove$.takeUntil(mouseUp$)); 
 const elementDragging$ = mouseDrag$.withLatestFrom(mouseDown$); // [drag_event,    mousedown_event]
-const elementDropped$ = mouseUp$.withLatestFrom(mouseDown$);    // [mouseup_event, mousedown_event]
+const elementDropped$ = mouseUp$.withLatestFrom(mouseDown$);   // [mouseup_event, mousedown_event]
+    
 
 elementDragging$.subscribe( 
 	([drag_event, mousedown_event]) => {
