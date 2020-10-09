@@ -20,11 +20,6 @@
 	    .from-area{
 			background-color: #ccccff;
 	 	}
-	 	.element-box{
-	 		background-color: #000000; 
-			cursor: move; 
-	 		color: #ffffff; 
-	 	}
 		.receive-area{
 			background-color: #ffcccc;
 	 	}
@@ -37,6 +32,20 @@
 	 	#dropped-animals{
 	 		height:200px;
 	 	}
+	 	.element-box{
+	 		opacity: 50%;
+			cursor: move; 
+	 		color: #ffffff; 
+	 	}
+	 	#cat{
+	 		background-color: #800; 
+	 	}
+	 	#dog{
+	 		background-color: #080; 
+	 	}
+	 	#sheep{
+	 		background-color: #008; 
+	 	}
 	</style>
 
 	<div class="drag-from from-area big-box">
@@ -44,9 +53,9 @@
 			<div class="animal-spacer">&nbsp;</div>
     	<div id="cat" class="drag-element element-box">Cat</div>
 			<div class="animal-spacer">&nbsp;</div>
-    	<div id="dog"  class="drag-element element-box">Dog</div>
+    	<div id="dog" class="drag-element element-box">Dog</div>
 			<div class="animal-spacer">&nbsp;</div>
-    	<div id="sheep"  class="drag-element element-box">Sheep</div>
+    	<div id="sheep" class="drag-element element-box">Sheep</div>
     </div>
 
 	<div id="dropped-animals">&nbsp;</div>
@@ -62,30 +71,24 @@ const cursor_offset = 8;
 
 const canDragElement = mousedown_event => mousedown_event.target.className.includes('drag-element');
 
-const getBeneathDragElem = mouseup_event => {
-	const dragged_element_id = mouseup_event.target.id;
-    document.getElementById(dragged_element_id).hidden = true;
-    const under_drag_elem = document.elementFromPoint(mouseup_event.clientX, mouseup_event.clientY);
-    document.getElementById(dragged_element_id).hidden = false;
-    return under_drag_elem;
-}
-
-const canReceiveDrag = mouseup_event  => {
-	if (mouseup_event.target.className.includes('drag-receive')){  // mouse-up just beside a drag-element on the drag-receive
-		return true;
+const canReceiveDrag = (mouseup_event, the_element) =>{
+ 	if (the_element.className.includes('drag-receive') ){
+    	return true;
+    }else if (the_element.id==''){
+		return false;   
+    }else{
+		the_element.hidden = true;
+    	const under_drag_elem = document.elementFromPoint(mouseup_event.clientX, mouseup_event.clientY);
+        const can_receive_drag = canReceiveDrag(mouseup_event, under_drag_elem);
+    	the_element.hidden = false;
+    	return can_receive_drag;
 	}
-	if (mouseup_event.target.id==''){
-		return false;            // mouse-up outside the drag-receive
-	}
- 	const under_drag_elem =getBeneathDragElem(mouseup_event);
-	const can_drag = under_drag_elem.className.includes('drag-receive');  // mouse-up on a drag-element
-	return can_drag;
 }
 
 // [ {sheep: false}, {dog: true}, {cat: true} ]
 const dragHistoryList = function (accum_hash, mouseup_event__dropped_id){   
-	const [mouseup_event, dropped_id] = mouseup_event__dropped_id;
-    const is_chosen = canReceiveDrag(mouseup_event);     
+	const [mouseup_event, dropped_id] = mouseup_event__dropped_id; 
+    const is_chosen = canReceiveDrag(mouseup_event, mouseup_event.target);   
 	accum_hash[dropped_id] = is_chosen;
 	return accum_hash;
 }
@@ -128,8 +131,8 @@ chosenElements$.subscribe(
 
 /* remember where the dragged items started, so can return them when not chosen
 [ { the_id: "cat", the_top: "46px", the_left: "10px" }     // original cat location
-  { the_id: "dog", the_top: "100px", the_left: "10px" }    // original dog location
-  { the_id: "cat", the_top: "282px", the_left: "157px" } ]                                    */
+​  { the_id: "dog", the_top: "100px", the_left: "10px" }    // original dog location
+​  { the_id: "cat", the_top: "282px", the_left: "157px" } ]                                    */
 const recordOrginalPositions$ = mouseDown$
     .map(mousedown_event => [mousedown_event.target.id, window.getComputedStyle(mousedown_event.target)])
  	.map(([drag_id, the_style]) => {return {the_id:drag_id, the_top:the_style.top, the_left:the_style.left}})	
@@ -137,9 +140,9 @@ const recordOrginalPositions$ = mouseDown$
 
 /* get first item which must be the original location 
 [ { the_id: "cat", the_top: "46px", the_left: "10px" }     // original cat location
-  { the_id: "cat", the_top: "282px", the_left: "157px" } ]                                     */
+​  { the_id: "cat", the_top: "282px", the_left: "157px" } ]                                     */
 const backToOrgPos$ = Rx.Observable.zip(elementDropped$, recordOrginalPositions$)
-    .filter(([[mouseup_event, _mousedown_event], _original_positions]) => !canReceiveDrag(mouseup_event))
+    .filter(([[mouseup_event, _mousedown_event], _original_positions]) => !canReceiveDrag(mouseup_event, mouseup_event.target))          
 	.map(([[_mouseup_event, mousedown_event], original_positions]) => {return [mousedown_event.target.id, original_positions]})
  	.map(([drag_id, original_positions]) => {return original_positions.filter( (a_start_pos)=> a_start_pos.the_id == drag_id)})
  	.map(filtered_original_positions => {return filtered_original_positions[0]; } );
